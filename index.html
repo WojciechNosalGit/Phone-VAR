@@ -1,0 +1,2122 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>VAR System - Video Assistant Referee</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      body {
+        font-family: "Arial", sans-serif;
+        background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+        min-height: 100vh;
+        color: white;
+        overflow-x: hidden;
+        touch-action: pan-y;
+      }
+
+      .var-container {
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 10px;
+      }
+
+      /* VAR Header - styl telewizyjny */
+      .var-header {
+        background: linear-gradient(
+          90deg,
+          #1e3a8a 0%,
+          #3b82f6 50%,
+          #1e3a8a 100%
+        );
+        padding: 10px 15px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border: 2px solid #60a5fa;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .match-score {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        background: rgba(0, 0, 0, 0.6);
+        padding: 8px 15px;
+        border-radius: 8px;
+        border: 2px solid #3b82f6;
+      }
+
+      .team-score {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .team-name {
+        font-size: 11px;
+        color: #94a3b8;
+        text-transform: uppercase;
+        font-weight: bold;
+      }
+
+      .score-value {
+        font-size: 28px;
+        font-weight: bold;
+        color: #60a5fa;
+        font-family: "Courier New", monospace;
+        min-width: 35px;
+        text-align: center;
+      }
+
+      .score-separator {
+        font-size: 28px;
+        font-weight: bold;
+        color: #94a3b8;
+      }
+
+      .var-logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .var-tv-box {
+        background: #000;
+        padding: 8px 20px;
+        border: 3px solid #60a5fa;
+        border-radius: 6px;
+        box-shadow: 0 0 15px rgba(59, 130, 246, 0.8),
+          inset 0 0 8px rgba(59, 130, 246, 0.3);
+        position: relative;
+      }
+
+      .var-tv-box::before {
+        content: "";
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(45deg, #3b82f6, #60a5fa, #3b82f6);
+        border-radius: 6px;
+        z-index: -1;
+        opacity: 0.5;
+      }
+
+      .var-title {
+        font-size: 32px;
+        font-weight: bold;
+        letter-spacing: 6px;
+        color: #fff;
+        text-shadow: 0 0 15px #3b82f6, 0 0 30px #3b82f6;
+        animation: varPulse 2s ease-in-out infinite;
+      }
+
+      @keyframes varPulse {
+        0%,
+        100% {
+          text-shadow: 0 0 20px #3b82f6, 0 0 40px #3b82f6;
+        }
+        50% {
+          text-shadow: 0 0 30px #60a5fa, 0 0 60px #60a5fa;
+        }
+      }
+
+      .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(0, 0, 0, 0.6);
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 2px solid #3b82f6;
+        font-size: 12px;
+      }
+
+      .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #10b981;
+        animation: blink 1s ease-in-out infinite;
+      }
+
+      .status-dot.recording {
+        background: #ef4444;
+        box-shadow: 0 0 10px #ef4444;
+      }
+
+      .status-dot.checking {
+        background: #eab308;
+        box-shadow: 0 0 10px #eab308;
+        animation: checking 1s ease-in-out infinite;
+      }
+
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+
+      @keyframes checking {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.3);
+        }
+      }
+
+      /* Video Container */
+      .video-container {
+        position: relative;
+        background: #000;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 0 30px rgba(59, 130, 246, 0.3);
+        border: 2px solid #1e3a8a;
+        margin-bottom: 10px;
+        touch-action: none;
+      }
+
+      #videoCanvas {
+        width: 100%;
+        height: auto;
+        display: block;
+        min-height: 300px;
+        touch-action: none;
+      }
+
+      .foul-alert {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(239, 68, 68, 0.95);
+        color: white;
+        padding: 30px 50px;
+        border-radius: 15px;
+        font-size: 32px;
+        font-weight: bold;
+        border: 4px solid #fca5a5;
+        box-shadow: 0 0 40px rgba(239, 68, 68, 0.8);
+        display: none;
+        animation: alertPulse 0.5s ease-in-out;
+        z-index: 100;
+      }
+
+      @keyframes alertPulse {
+        0%,
+        100% {
+          transform: translate(-50%, -50%) scale(1);
+        }
+        50% {
+          transform: translate(-50%, -50%) scale(1.1);
+        }
+      }
+
+      .foul-alert.show {
+        display: block;
+      }
+
+      /* Controls */
+      .controls {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        border: 2px solid #3b82f6;
+        box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+      }
+
+      .control-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .btn {
+        padding: 15px 25px;
+        font-size: 16px;
+        font-weight: bold;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        position: relative;
+        overflow: hidden;
+        flex: 1;
+        min-width: 140px;
+      }
+
+      .btn::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+      }
+
+      .btn:active::before {
+        width: 300px;
+        height: 300px;
+      }
+
+      .btn-record {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+      }
+
+      .btn-stop {
+        background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+        color: white;
+      }
+
+      .btn-check {
+        background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+        color: white;
+      }
+
+      .btn-play {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* Zoom Controls */
+      .zoom-controls {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-bottom: 15px;
+      }
+
+      .zoom-btn {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        border: none;
+        background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+        color: white;
+        font-size: 24px;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+      }
+
+      .zoom-btn:active {
+        transform: scale(0.95);
+        box-shadow: 0 2px 10px rgba(59, 130, 246, 0.6);
+      }
+
+      /* Timeline Controls */
+      .timeline-controls {
+        background: rgba(0, 0, 0, 0.6);
+        padding: 15px;
+        border-radius: 10px;
+        margin-top: 10px;
+      }
+
+      .timeline-label {
+        font-size: 12px;
+        color: #94a3b8;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .slider-container {
+        margin-bottom: 15px;
+        position: relative;
+      }
+
+      .timeline-wrapper {
+        position: relative;
+        height: 40px;
+      }
+
+      .decision-markers {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 30px;
+        pointer-events: none;
+      }
+
+      .decision-marker {
+        position: absolute;
+        width: 6px;
+        height: 30px;
+        top: 0;
+        border-radius: 3px;
+        transform: translateX(-50%);
+      }
+
+      .decision-marker.foul {
+        background: #ef4444;
+        box-shadow: 0 0 10px #ef4444;
+      }
+
+      .decision-marker.no-foul {
+        background: #10b981;
+        box-shadow: 0 0 10px #10b981;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        height: 8px;
+        border-radius: 5px;
+        background: linear-gradient(90deg, #3b82f6 0%, #1e40af 100%);
+        outline: none;
+        -webkit-appearance: none;
+        position: relative;
+        top: 11px;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #60a5fa;
+        cursor: pointer;
+        box-shadow: 0 0 10px rgba(96, 165, 250, 0.8);
+        border: 3px solid #1e3a8a;
+      }
+
+      input[type="range"]::-moz-range-thumb {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #60a5fa;
+        cursor: pointer;
+        box-shadow: 0 0 10px rgba(96, 165, 250, 0.8);
+        border: 3px solid #1e3a8a;
+      }
+
+      .time-display {
+        text-align: center;
+        font-size: 18px;
+        color: #60a5fa;
+        font-weight: bold;
+        margin-top: 10px;
+        font-family: "Courier New", monospace;
+      }
+
+      .zoom-display {
+        text-align: center;
+        font-size: 16px;
+        color: #60a5fa;
+        font-weight: bold;
+        margin: 10px 0;
+      }
+
+      /* Decision Panel */
+      .decision-panel {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        padding: 15px;
+        border-radius: 10px;
+        border: 2px solid #3b82f6;
+        box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+      }
+
+      .decision-title {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        text-align: center;
+        color: #60a5fa;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+
+      .decision-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+      }
+
+      .btn-foul {
+        background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+        color: white;
+        padding: 15px 30px;
+        font-size: 18px;
+        flex: 1;
+      }
+
+      .btn-foul:active {
+        background: linear-gradient(135deg, #991b1b 0%, #7f1d1d 100%);
+      }
+
+      .btn-no-foul {
+        background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+        color: white;
+        padding: 15px 30px;
+        font-size: 18px;
+        flex: 1;
+      }
+
+      .btn-no-foul:active {
+        background: linear-gradient(135deg, #15803d 0%, #166534 100%);
+      }
+
+      .info-text {
+        text-align: center;
+        color: #94a3b8;
+        margin-top: 15px;
+        font-size: 12px;
+      }
+
+      .decision-step {
+        animation: fadeIn 0.3s ease-in-out;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .decision-buttons-vertical {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .players-selection {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-height: 400px;
+        overflow-y: auto;
+        margin-top: 15px;
+      }
+
+      .player-select-btn {
+        padding: 15px;
+        background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-align: left;
+      }
+
+      .player-select-btn:active {
+        transform: scale(0.98);
+        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+      }
+
+      .player-select-btn.unavailable {
+        background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .summary-text {
+        background: rgba(59, 130, 246, 0.2);
+        padding: 15px;
+        border-radius: 8px;
+        border: 2px solid #3b82f6;
+        color: #60a5fa;
+        font-size: 16px;
+        font-weight: bold;
+        text-align: center;
+        margin-top: 15px;
+      }
+
+      /* Setup Screen Styles */
+      .setup-section {
+        margin-bottom: 20px;
+      }
+
+      .setup-label {
+        display: block;
+        color: #60a5fa;
+        font-weight: bold;
+        margin-bottom: 8px;
+        font-size: 14px;
+      }
+
+      .setup-select {
+        width: 100%;
+        padding: 12px;
+        background: rgba(0, 0, 0, 0.6);
+        border: 2px solid #3b82f6;
+        border-radius: 8px;
+        color: white;
+        font-size: 16px;
+        font-weight: bold;
+      }
+
+      .teams-setup {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-top: 20px;
+      }
+
+      .team-column {
+        background: rgba(0, 0, 0, 0.4);
+        padding: 15px;
+        border-radius: 10px;
+        border: 2px solid #3b82f6;
+      }
+
+      .team-header {
+        font-size: 16px;
+        font-weight: bold;
+        color: #60a5fa;
+        text-align: center;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+      }
+
+      .team-input {
+        width: 100%;
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.6);
+        border: 2px solid #3b82f6;
+        border-radius: 8px;
+        color: white;
+        font-size: 14px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 10px;
+      }
+
+      .players-label {
+        font-size: 12px;
+        color: #94a3b8;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+      }
+
+      .players-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .player-input {
+        width: 100%;
+        padding: 8px;
+        background: rgba(0, 0, 0, 0.6);
+        border: 2px solid #475569;
+        border-radius: 6px;
+        color: white;
+        font-size: 13px;
+      }
+
+      .player-input:focus {
+        outline: none;
+        border-color: #60a5fa;
+      }
+
+      @media (max-width: 600px) {
+        .teams-setup {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Statistics Panel */
+      .stats-panel {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        padding: 15px;
+        border-radius: 10px;
+        border: 2px solid #3b82f6;
+        box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+        margin-bottom: 10px;
+      }
+
+      .teams-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-top: 15px;
+      }
+
+      .team-stats-column {
+        background: rgba(0, 0, 0, 0.4);
+        padding: 12px;
+        border-radius: 8px;
+        border: 2px solid #475569;
+      }
+
+      .players-stats-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      .player-stat-card {
+        background: rgba(0, 0, 0, 0.6);
+        padding: 10px;
+        border-radius: 6px;
+        border: 2px solid #475569;
+      }
+
+      .player-stat-card.red-card {
+        border-color: #ef4444;
+        background: rgba(239, 68, 68, 0.1);
+      }
+
+      .player-stat-name {
+        font-size: 14px;
+        font-weight: bold;
+        color: white;
+        margin-bottom: 8px;
+      }
+
+      .player-stat-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11px;
+        color: #94a3b8;
+        margin-bottom: 8px;
+      }
+
+      .card-buttons {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+      }
+
+      .card-btn {
+        flex: 1;
+        padding: 6px 10px;
+        font-size: 11px;
+        font-weight: bold;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-width: 70px;
+      }
+
+      .card-btn.warning {
+        background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+        color: white;
+      }
+
+      .card-btn.yellow {
+        background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+        color: white;
+      }
+
+      .card-btn.red {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+      }
+
+      .card-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+
+      /* Score Management */
+      .score-management {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-top: 15px;
+      }
+
+      .score-team-control {
+        background: rgba(0, 0, 0, 0.4);
+        padding: 15px;
+        border-radius: 8px;
+        border: 2px solid #3b82f6;
+        text-align: center;
+      }
+
+      .score-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 15px;
+      }
+
+      .score-btn {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        border: none;
+        background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        transition: all 0.3s ease;
+      }
+
+      .score-btn:active {
+        transform: scale(0.95);
+      }
+
+      .score-btn.minus {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      }
+
+      .score-btn.plus {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      }
+
+      .score-big {
+        font-size: 48px;
+        font-weight: bold;
+        color: #60a5fa;
+        font-family: "Courier New", monospace;
+        min-width: 80px;
+      }
+
+      @media (max-width: 600px) {
+        .teams-stats {
+          grid-template-columns: 1fr;
+        }
+
+        .score-management {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="var-container">
+      <!-- VAR Header -->
+      <div class="var-header">
+        <div class="var-logo">
+          <div class="var-tv-box">
+            <div class="var-title">VAR</div>
+          </div>
+        </div>
+        <div class="match-score" id="matchScore" style="display: none">
+          <div class="team-score">
+            <div class="team-name" id="scoreTeam1Name">Drużyna 1</div>
+            <div class="score-value" id="scoreTeam1">0</div>
+          </div>
+          <div class="score-separator">:</div>
+          <div class="team-score">
+            <div class="score-value" id="scoreTeam2">0</div>
+            <div class="team-name" id="scoreTeam2Name">Drużyna 2</div>
+          </div>
+        </div>
+        <div class="status-indicator">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">KONFIGURACJA</span>
+        </div>
+      </div>
+
+      <!-- Setup Screen -->
+      <div class="controls" id="setupScreen">
+        <div class="decision-title">⚽ Konfiguracja Meczu</div>
+
+        <div class="setup-section">
+          <label class="setup-label">Format meczu:</label>
+          <select id="formatSelect" class="setup-select">
+            <option value="1">1v1</option>
+            <option value="2">2v2</option>
+            <option value="3">3v3</option>
+            <option value="4">4v4</option>
+            <option value="5" selected>5v5</option>
+            <option value="6">6v6</option>
+            <option value="7">7v7</option>
+            <option value="8">8v8</option>
+            <option value="9">9v9</option>
+            <option value="10">10v10</option>
+            <option value="11">11v11</option>
+          </select>
+        </div>
+
+        <div class="teams-setup">
+          <div class="team-column">
+            <div class="team-header">Drużyna 1 (Lewa)</div>
+            <input
+              type="text"
+              id="team1Name"
+              class="team-input"
+              value="Drużyna 1"
+              placeholder="Nazwa drużyny"
+            />
+            <div class="players-label">Zawodnicy:</div>
+            <div id="team1Players" class="players-list"></div>
+          </div>
+
+          <div class="team-column">
+            <div class="team-header">Drużyna 2 (Prawa)</div>
+            <input
+              type="text"
+              id="team2Name"
+              class="team-input"
+              value="Drużyna 2"
+              placeholder="Nazwa drużyny"
+            />
+            <div class="players-label">Zawodnicy:</div>
+            <div id="team2Players" class="players-list"></div>
+          </div>
+        </div>
+
+        <button
+          class="btn btn-play"
+          id="startMatchBtn"
+          style="width: 100%; margin-top: 20px"
+        >
+          🎮 ROZPOCZNIJ MECZ
+        </button>
+      </div>
+
+      <!-- Video Container -->
+      <div class="video-container" style="display: none" id="videoContainer">
+        <canvas id="videoCanvas"></canvas>
+        <div class="foul-alert" id="foulAlert">⚠️ MOŻLIWY FAUL! ⚠️</div>
+      </div>
+
+      <!-- Main Controls -->
+      <div class="controls" id="recordControls" style="display: none">
+        <div class="control-row">
+          <button class="btn btn-record" id="startBtn">🔴 START</button>
+          <button class="btn btn-stop" id="stopBtn" disabled>⏹️ STOP</button>
+        </div>
+        <div class="control-row">
+          <button class="btn btn-check" id="statsBtn">📊 STATYSTYKI</button>
+          <button class="btn btn-play" id="scoreBtn">⚽ WYNIK</button>
+        </div>
+      </div>
+
+      <!-- Statistics Panel -->
+      <div class="stats-panel" id="statsPanel" style="display: none">
+        <div class="decision-title">📊 Statystyki Zawodników</div>
+
+        <div class="teams-stats">
+          <div class="team-stats-column">
+            <div class="team-header" id="statsTeam1Name">Drużyna 1</div>
+            <div id="team1Stats" class="players-stats-list"></div>
+          </div>
+
+          <div class="team-stats-column">
+            <div class="team-header" id="statsTeam2Name">Drużyna 2</div>
+            <div id="team2Stats" class="players-stats-list"></div>
+          </div>
+        </div>
+
+        <button
+          class="btn btn-stop"
+          id="closeStatsBtn"
+          style="width: 100%; margin-top: 15px"
+        >
+          ✖️ ZAMKNIJ
+        </button>
+      </div>
+
+      <!-- Score Management Panel -->
+      <div class="stats-panel" id="scorePanel" style="display: none">
+        <div class="decision-title">⚽ Zarządzanie Wynikiem</div>
+
+        <div class="score-management">
+          <div class="score-team-control">
+            <div class="team-header" id="scoreManageTeam1Name">Drużyna 1</div>
+            <div class="score-controls">
+              <button class="score-btn minus" data-team="1">−</button>
+              <div class="score-big" id="scoreManage1">0</div>
+              <button class="score-btn plus" data-team="1">+</button>
+            </div>
+          </div>
+
+          <div class="score-team-control">
+            <div class="team-header" id="scoreManageTeam2Name">Drużyna 2</div>
+            <div class="score-controls">
+              <button class="score-btn minus" data-team="2">−</button>
+              <div class="score-big" id="scoreManage2">0</div>
+              <button class="score-btn plus" data-team="2">+</button>
+            </div>
+          </div>
+        </div>
+
+        <button
+          class="btn btn-stop"
+          id="closeScoreBtn"
+          style="width: 100%; margin-top: 15px"
+        >
+          ✖️ ZAMKNIJ
+        </button>
+      </div>
+
+      <!-- VAR Review Controls -->
+      <div class="controls" id="varControls" style="display: none">
+        <!-- Zoom Controls -->
+        <div class="zoom-display" id="zoomDisplay">Zoom: 1.0x</div>
+        <div class="zoom-controls">
+          <button class="zoom-btn" id="zoomOutBtn">🔍−</button>
+          <button class="zoom-btn" id="zoomInBtn">🔍+</button>
+        </div>
+
+        <!-- Timeline -->
+        <div class="slider-container">
+          <div class="timeline-label">⏱️ Linia czasu nagrania</div>
+          <div class="timeline-wrapper">
+            <div class="decision-markers" id="decisionMarkers"></div>
+            <input
+              type="range"
+              id="timelineSlider"
+              min="0"
+              max="100"
+              value="0"
+            />
+          </div>
+          <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
+        </div>
+
+        <!-- Playback Controls -->
+        <div class="control-row">
+          <button class="btn btn-play" id="playBtn">▶️</button>
+          <button class="btn btn-stop" id="pauseBtn">⏸️</button>
+        </div>
+      </div>
+
+      <!-- Decision Panel -->
+      <div class="decision-panel" id="decisionPanel" style="display: none">
+        <!-- Krok 1: Główna decyzja -->
+        <div id="decisionStep1" class="decision-step">
+          <div class="decision-title">🎯 Decyzja sędziego VAR</div>
+          <div class="decision-buttons">
+            <button class="btn btn-foul" id="foulBtn">🔴 FAUL</button>
+            <button class="btn btn-no-foul" id="noFoulBtn">
+              ✅ NIE MA FAULU
+            </button>
+          </div>
+          <div class="info-text">
+            Zatrzymaj nagranie w odpowiednim momencie i podejmij decyzję
+          </div>
+        </div>
+
+        <!-- Krok 2: Potwierdzenie faulu -->
+        <div id="decisionStep2" class="decision-step" style="display: none">
+          <div class="decision-title">⚠️ Czy na pewno to był faul?</div>
+          <div class="decision-buttons">
+            <button class="btn btn-play" id="confirmYesBtn">✅ TAK</button>
+            <button class="btn btn-stop" id="confirmNoBtn">❌ NIE</button>
+          </div>
+        </div>
+
+        <!-- Krok 3: Wybór drużyny -->
+        <div id="decisionStep3" class="decision-step" style="display: none">
+          <div class="decision-title">👥 Dla której drużyny?</div>
+          <div class="decision-buttons">
+            <button class="btn btn-play" id="team1FoulBtn">
+              ⬅️ <span id="foulTeam1Name">Drużyna 1</span>
+            </button>
+            <button class="btn btn-play" id="team2FoulBtn">
+              <span id="foulTeam2Name">Drużyna 2</span> ➡️
+            </button>
+          </div>
+        </div>
+
+        <!-- Krok 4: Wybór zawodnika -->
+        <div id="decisionStep4" class="decision-step" style="display: none">
+          <div class="decision-title">👤 Który zawodnik?</div>
+          <div id="playersListFoul" class="players-selection"></div>
+        </div>
+
+        <!-- Krok 5: Wybór kartki -->
+        <div id="decisionStep5" class="decision-step" style="display: none">
+          <div class="decision-title">🎴 Jaka kartka?</div>
+          <div class="decision-buttons-vertical">
+            <button class="btn card-btn warning" id="giveWarningBtn">
+              ⚠️ OSTRZEŻENIE
+            </button>
+            <button class="btn card-btn yellow" id="giveYellowBtn">
+              🟨 ŻÓŁTA KARTKA
+            </button>
+            <button class="btn card-btn red" id="giveRedBtn">
+              🟥 CZERWONA KARTKA
+            </button>
+          </div>
+        </div>
+
+        <!-- Podsumowanie -->
+        <div id="decisionSummary" class="decision-step" style="display: none">
+          <div class="decision-title">✅ Decyzja zapisana!</div>
+          <div class="summary-text" id="summaryText"></div>
+          <button
+            class="btn btn-check"
+            id="endVarBtn"
+            style="width: 100%; margin-top: 15px"
+          >
+            ✅ KONIEC ANALIZY VAR
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Elementy DOM
+      const videoCanvas = document.getElementById("videoCanvas");
+      const ctx = videoCanvas.getContext("2d");
+      const setupScreen = document.getElementById("setupScreen");
+      const videoContainer = document.getElementById("videoContainer");
+      const startMatchBtn = document.getElementById("startMatchBtn");
+      const formatSelect = document.getElementById("formatSelect");
+      const team1Name = document.getElementById("team1Name");
+      const team2Name = document.getElementById("team2Name");
+      const team1Players = document.getElementById("team1Players");
+      const team2Players = document.getElementById("team2Players");
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const statusDot = document.getElementById("statusDot");
+      const statusText = document.getElementById("statusText");
+      const foulAlert = document.getElementById("foulAlert");
+      const recordControls = document.getElementById("recordControls");
+      const varControls = document.getElementById("varControls");
+      const timelineSlider = document.getElementById("timelineSlider");
+      const timeDisplay = document.getElementById("timeDisplay");
+      const zoomDisplay = document.getElementById("zoomDisplay");
+      const zoomInBtn = document.getElementById("zoomInBtn");
+      const zoomOutBtn = document.getElementById("zoomOutBtn");
+      const decisionPanel = document.getElementById("decisionPanel");
+      const decisionMarkers = document.getElementById("decisionMarkers");
+      const foulBtn = document.getElementById("foulBtn");
+      const noFoulBtn = document.getElementById("noFoulBtn");
+      const playBtn = document.getElementById("playBtn");
+      const pauseBtn = document.getElementById("pauseBtn");
+      const endVarBtn = document.getElementById("endVarBtn");
+
+      // Decision flow elements
+      const decisionStep1 = document.getElementById("decisionStep1");
+      const decisionStep2 = document.getElementById("decisionStep2");
+      const decisionStep3 = document.getElementById("decisionStep3");
+      const decisionStep4 = document.getElementById("decisionStep4");
+      const decisionStep5 = document.getElementById("decisionStep5");
+      const decisionSummary = document.getElementById("decisionSummary");
+      const confirmYesBtn = document.getElementById("confirmYesBtn");
+      const confirmNoBtn = document.getElementById("confirmNoBtn");
+      const team1FoulBtn = document.getElementById("team1FoulBtn");
+      const team2FoulBtn = document.getElementById("team2FoulBtn");
+      const playersListFoul = document.getElementById("playersListFoul");
+      const giveWarningBtn = document.getElementById("giveWarningBtn");
+      const giveYellowBtn = document.getElementById("giveYellowBtn");
+      const giveRedBtn = document.getElementById("giveRedBtn");
+      const summaryText = document.getElementById("summaryText");
+      const foulTeam1Name = document.getElementById("foulTeam1Name");
+      const foulTeam2Name = document.getElementById("foulTeam2Name");
+
+      // Statystyki i wynik
+      const statsBtn = document.getElementById("statsBtn");
+      const scoreBtn = document.getElementById("scoreBtn");
+      const statsPanel = document.getElementById("statsPanel");
+      const scorePanel = document.getElementById("scorePanel");
+      const closeStatsBtn = document.getElementById("closeStatsBtn");
+      const closeScoreBtn = document.getElementById("closeScoreBtn");
+      const matchScore = document.getElementById("matchScore");
+      const scoreTeam1 = document.getElementById("scoreTeam1");
+      const scoreTeam2 = document.getElementById("scoreTeam2");
+      const scoreTeam1Name = document.getElementById("scoreTeam1Name");
+      const scoreTeam2Name = document.getElementById("scoreTeam2Name");
+
+      // Zmienne globalne
+      let matchConfig = {
+        format: 5,
+        team1: { name: "Drużyna 1", players: [], score: 0 },
+        team2: { name: "Drużyna 2", players: [], score: 0 },
+      };
+
+      let playerStats = {
+        team1: [],
+        team2: [],
+      };
+
+      // Maksymalna liczba schodzących zawodników
+      const MAX_RED_CARDS = {
+        11: 7,
+        10: 6,
+        9: 5,
+        8: 4,
+        7: 3,
+        6: 2,
+        5: 1,
+        4: 0,
+        3: 0,
+        2: 0,
+        1: 0,
+      };
+
+      let stream = null;
+      let mediaRecorder = null;
+      let recordedChunks = [];
+      let recordedVideo = null;
+      let isRecording = false;
+      let videoElement = null;
+      let animationId = null;
+      let currentZoom = 1;
+      let panX = 0;
+      let panY = 0;
+      let foulCheckInterval = null;
+      let isPlaying = false;
+      let decisions = [];
+
+      // Decision flow state
+      let currentDecisionTime = 0;
+      let selectedTeam = null;
+      let selectedPlayerIndex = null;
+
+      // Touch handling
+      let touchStartDistance = 0;
+      let initialZoom = 1;
+      let lastTouchX = 0;
+      let lastTouchY = 0;
+      let isDragging = false;
+
+      // Ustawienie rozmiaru canvas
+      function resizeCanvas() {
+        videoCanvas.width = videoCanvas.offsetWidth;
+        videoCanvas.height = (videoCanvas.offsetWidth * 9) / 16;
+      }
+      resizeCanvas();
+      window.addEventListener("resize", resizeCanvas);
+
+      // Generowanie pól dla zawodników
+      function generatePlayerInputs() {
+        const playerCount = parseInt(formatSelect.value);
+
+        team1Players.innerHTML = "";
+        team2Players.innerHTML = "";
+
+        for (let i = 1; i <= playerCount; i++) {
+          const input1 = document.createElement("input");
+          input1.type = "text";
+          input1.className = "player-input";
+          input1.placeholder = `Zawodnik ${i}`;
+          input1.dataset.playerNum = i;
+          input1.required = true;
+          team1Players.appendChild(input1);
+
+          const input2 = document.createElement("input");
+          input2.type = "text";
+          input2.className = "player-input";
+          input2.placeholder = `Zawodnik ${i}`;
+          input2.dataset.playerNum = i;
+          input2.required = true;
+          team2Players.appendChild(input2);
+        }
+      }
+
+      // Inicjalizacja pól zawodników
+      generatePlayerInputs();
+      formatSelect.addEventListener("change", generatePlayerInputs);
+
+      // Walidacja - wszystkie pola muszą być wypełnione
+      function validateSetup() {
+        const team1Inputs = team1Players.querySelectorAll("input");
+        const team2Inputs = team2Players.querySelectorAll("input");
+
+        for (let input of team1Inputs) {
+          if (!input.value.trim()) {
+            alert("Wypełnij wszystkie pola zawodników dla Drużyny 1!");
+            input.focus();
+            return false;
+          }
+        }
+
+        for (let input of team2Inputs) {
+          if (!input.value.trim()) {
+            alert("Wypełnij wszystkie pola zawodników dla Drużyny 2!");
+            input.focus();
+            return false;
+          }
+        }
+
+        return true;
+      }
+
+      // Inicjalizacja statystyk zawodników
+      function initPlayerStats() {
+        playerStats.team1 = matchConfig.team1.players.map((name, index) => ({
+          name: name,
+          warnings: 0,
+          yellowCards: 0,
+          redCard: false,
+          onField: true,
+        }));
+
+        playerStats.team2 = matchConfig.team2.players.map((name, index) => ({
+          name: name,
+          warnings: 0,
+          yellowCards: 0,
+          redCard: false,
+          onField: true,
+        }));
+      }
+
+      // Rozpocznij mecz
+      startMatchBtn.addEventListener("click", () => {
+        if (!validateSetup()) {
+          return;
+        }
+
+        // Zbierz konfigurację
+        matchConfig.format = parseInt(formatSelect.value);
+        matchConfig.team1.name = team1Name.value || "Drużyna 1";
+        matchConfig.team2.name = team2Name.value || "Drużyna 2";
+        matchConfig.team1.score = 0;
+        matchConfig.team2.score = 0;
+
+        matchConfig.team1.players = [];
+        matchConfig.team2.players = [];
+
+        team1Players.querySelectorAll("input").forEach((input) => {
+          matchConfig.team1.players.push(input.value.trim());
+        });
+
+        team2Players.querySelectorAll("input").forEach((input) => {
+          matchConfig.team2.players.push(input.value.trim());
+        });
+
+        // Inicjalizuj statystyki
+        initPlayerStats();
+
+        // Resetuj nagrania i decyzje na początku meczu
+        recordedChunks = [];
+        decisions = [];
+
+        // Przejdź do ekranu nagrywania
+        setupScreen.style.display = "none";
+        videoContainer.style.display = "block";
+        recordControls.style.display = "block";
+        matchScore.style.display = "flex";
+
+        // Ustaw nazwy w wynikach
+        scoreTeam1Name.textContent = matchConfig.team1.name;
+        scoreTeam2Name.textContent = matchConfig.team2.name;
+        updateScoreDisplay();
+
+        statusText.textContent = "GOTOWY";
+      });
+
+      // Aktualizacja wyniku
+      function updateScoreDisplay() {
+        scoreTeam1.textContent = matchConfig.team1.score;
+        scoreTeam2.textContent = matchConfig.team2.score;
+        document.getElementById("scoreManage1").textContent =
+          matchConfig.team1.score;
+        document.getElementById("scoreManage2").textContent =
+          matchConfig.team2.score;
+        document.getElementById("scoreManageTeam1Name").textContent =
+          matchConfig.team1.name;
+        document.getElementById("scoreManageTeam2Name").textContent =
+          matchConfig.team2.name;
+      }
+
+      // Panel statystyk
+      statsBtn.addEventListener("click", () => {
+        renderStats();
+        statsPanel.style.display = "block";
+        recordControls.style.display = "none";
+      });
+
+      closeStatsBtn.addEventListener("click", () => {
+        statsPanel.style.display = "none";
+        recordControls.style.display = "block";
+      });
+
+      // Panel wyniku
+      scoreBtn.addEventListener("click", () => {
+        updateScoreDisplay();
+        scorePanel.style.display = "block";
+        recordControls.style.display = "none";
+      });
+
+      closeScoreBtn.addEventListener("click", () => {
+        scorePanel.style.display = "none";
+        recordControls.style.display = "block";
+      });
+
+      // Zarządzanie wynikiem
+      document.querySelectorAll(".score-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const team = e.target.dataset.team;
+          const isMinus = e.target.classList.contains("minus");
+
+          if (team === "1") {
+            if (isMinus && matchConfig.team1.score > 0) {
+              matchConfig.team1.score--;
+            } else if (!isMinus) {
+              matchConfig.team1.score++;
+            }
+          } else if (team === "2") {
+            if (isMinus && matchConfig.team2.score > 0) {
+              matchConfig.team2.score--;
+            } else if (!isMinus) {
+              matchConfig.team2.score++;
+            }
+          }
+
+          updateScoreDisplay();
+        });
+      });
+
+      // Renderowanie statystyk
+      function renderStats() {
+        document.getElementById("statsTeam1Name").textContent =
+          matchConfig.team1.name;
+        document.getElementById("statsTeam2Name").textContent =
+          matchConfig.team2.name;
+
+        const team1StatsDiv = document.getElementById("team1Stats");
+        const team2StatsDiv = document.getElementById("team2Stats");
+
+        team1StatsDiv.innerHTML = "";
+        team2StatsDiv.innerHTML = "";
+
+        playerStats.team1.forEach((player, index) => {
+          team1StatsDiv.appendChild(createPlayerStatCard(player, 1, index));
+        });
+
+        playerStats.team2.forEach((player, index) => {
+          team2StatsDiv.appendChild(createPlayerStatCard(player, 2, index));
+        });
+      }
+
+      // Tworzenie karty statystyk zawodnika
+      function createPlayerStatCard(player, team, index) {
+        const card = document.createElement("div");
+        card.className = "player-stat-card";
+        if (player.redCard) {
+          card.classList.add("red-card");
+        }
+
+        const name = document.createElement("div");
+        name.className = "player-stat-name";
+        name.textContent =
+          player.name + (!player.onField ? " (POZA BOISKIEM)" : "");
+
+        const info = document.createElement("div");
+        info.className = "player-stat-info";
+        info.innerHTML = `
+                <span>⚠️ ${player.warnings}</span>
+                <span>🟨 ${player.yellowCards}</span>
+                <span>🟥 ${player.redCard ? "1" : "0"}</span>
+            `;
+
+        const buttons = document.createElement("div");
+        buttons.className = "card-buttons";
+
+        const warningBtn = document.createElement("button");
+        warningBtn.className = "card-btn warning";
+        warningBtn.textContent = "⚠️ Ostrzeżenie";
+        warningBtn.disabled = player.redCard;
+        warningBtn.onclick = () => giveWarning(team, index);
+
+        const yellowBtn = document.createElement("button");
+        yellowBtn.className = "card-btn yellow";
+        yellowBtn.textContent = "🟨 Żółta";
+        yellowBtn.disabled = player.redCard;
+        yellowBtn.onclick = () => giveYellowCard(team, index);
+
+        const redBtn = document.createElement("button");
+        redBtn.className = "card-btn red";
+        redBtn.textContent = "🟥 Czerwona";
+        redBtn.disabled = player.redCard;
+        redBtn.onclick = () => giveRedCard(team, index);
+
+        buttons.appendChild(warningBtn);
+        buttons.appendChild(yellowBtn);
+        buttons.appendChild(redBtn);
+
+        card.appendChild(name);
+        card.appendChild(info);
+        card.appendChild(buttons);
+
+        return card;
+      }
+
+      // Dodawanie ostrzeżenia
+      function giveWarning(team, index) {
+        const player =
+          team === 1 ? playerStats.team1[index] : playerStats.team2[index];
+
+        if (player.redCard) return;
+
+        player.warnings++;
+
+        // 2 ostrzeżenia = żółta kartka
+        if (player.warnings >= 2) {
+          player.warnings = 0;
+          giveYellowCard(team, index);
+          return;
+        }
+
+        renderStats();
+        vibrate();
+      }
+
+      // Dodawanie żółtej kartki
+      function giveYellowCard(team, index) {
+        const player =
+          team === 1 ? playerStats.team1[index] : playerStats.team2[index];
+
+        if (player.redCard) return;
+
+        player.yellowCards++;
+
+        // 2 żółte = czerwona
+        if (player.yellowCards >= 2) {
+          giveRedCard(team, index);
+          return;
+        }
+
+        renderStats();
+        vibrate();
+      }
+
+      // Dodawanie czerwonej kartki
+      function giveRedCard(team, index) {
+        const player =
+          team === 1 ? playerStats.team1[index] : playerStats.team2[index];
+
+        if (player.redCard) return;
+
+        player.redCard = true;
+
+        // Specjalne zasady dla 1v1
+        if (matchConfig.format === 1) {
+          // Resetuj statystyki ale zostaw 1 ostrzeżenie
+          player.warnings = 1;
+          player.yellowCards = 0;
+          player.redCard = false; // Nie dostaje czerwonej na stałe
+          player.onField = true;
+
+          // Dodaj 2 bramki przeciwnikowi
+          if (team === 1) {
+            matchConfig.team2.score += 2;
+          } else {
+            matchConfig.team1.score += 2;
+          }
+
+          updateScoreDisplay();
+          alert(
+            `${player.name} dostaje czerwoną kartkę! Statystyki zresetowane do 1 ostrzeżenia, przeciwnik dostaje 2 bramki!`
+          );
+        } else {
+          // Normalne zasady - sprawdź limit
+          const maxRedCards = MAX_RED_CARDS[matchConfig.format];
+          const teamStats = team === 1 ? playerStats.team1 : playerStats.team2;
+          const redCardCount = teamStats.filter((p) => p.redCard).length;
+
+          player.onField = false;
+
+          if (redCardCount > maxRedCards) {
+            const teamName =
+              team === 1 ? matchConfig.team1.name : matchConfig.team2.name;
+            alert(
+              `KONIEC MECZU! ${teamName} - za dużo graczy zeszło z boiska!`
+            );
+          } else {
+            alert(`${player.name} schodzi z boiska!`);
+          }
+        }
+
+        renderStats();
+        vibrate();
+      }
+
+      // Funkcje pomocnicze
+      function playAlertSound() {
+        const audioContext = new (window.AudioContext ||
+          window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.value = 800;
+        oscillator.type = "sine";
+
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(
+          0.01,
+          audioContext.currentTime + 0.5
+        );
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+      }
+
+      function vibrate() {
+        if ("vibrate" in navigator) {
+          navigator.vibrate([200, 100, 200]);
+        }
+      }
+
+      function startFoulDetection() {
+        function scheduleNextCheck() {
+          const delay = Math.random() * 10000 + 5000;
+          foulCheckInterval = setTimeout(() => {
+            if (isRecording) {
+              if (Math.random() < 0.3) {
+                showFoulAlert();
+              }
+            }
+            scheduleNextCheck();
+          }, delay);
+        }
+        scheduleNextCheck();
+      }
+
+      function showFoulAlert() {
+        foulAlert.classList.add("show");
+        playAlertSound();
+        vibrate();
+
+        setTimeout(() => {
+          foulAlert.classList.remove("show");
+        }, 2000);
+      }
+
+      // Touch events dla pinch-to-zoom
+      videoCanvas.addEventListener("touchstart", (e) => {
+        if (!videoElement || isRecording) return;
+
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          const touch1 = e.touches[0];
+          const touch2 = e.touches[1];
+          touchStartDistance = Math.hypot(
+            touch2.clientX - touch1.clientX,
+            touch2.clientY - touch1.clientY
+          );
+          initialZoom = currentZoom;
+        } else if (e.touches.length === 1) {
+          isDragging = true;
+          lastTouchX = e.touches[0].clientX;
+          lastTouchY = e.touches[0].clientY;
+        }
+      });
+
+      videoCanvas.addEventListener("touchmove", (e) => {
+        if (!videoElement || isRecording) return;
+
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          const touch1 = e.touches[0];
+          const touch2 = e.touches[1];
+          const currentDistance = Math.hypot(
+            touch2.clientX - touch1.clientX,
+            touch2.clientY - touch1.clientY
+          );
+
+          const scale = currentDistance / touchStartDistance;
+          currentZoom = Math.max(1, Math.min(4, initialZoom * scale));
+          zoomDisplay.textContent = `Zoom: ${currentZoom.toFixed(1)}x`;
+          drawReviewFrame();
+        } else if (e.touches.length === 1 && isDragging) {
+          e.preventDefault();
+          const deltaX = e.touches[0].clientX - lastTouchX;
+          const deltaY = e.touches[0].clientY - lastTouchY;
+
+          panX += deltaX;
+          panY += deltaY;
+
+          const maxPan = (currentZoom - 1) * 200;
+          panX = Math.max(-maxPan, Math.min(maxPan, panX));
+          panY = Math.max(-maxPan, Math.min(maxPan, panY));
+
+          lastTouchX = e.touches[0].clientX;
+          lastTouchY = e.touches[0].clientY;
+
+          drawReviewFrame();
+        }
+      });
+
+      videoCanvas.addEventListener("touchend", (e) => {
+        if (e.touches.length === 0) {
+          isDragging = false;
+        }
+      });
+
+      // Zoom buttons
+      zoomInBtn.addEventListener("click", () => {
+        currentZoom = Math.min(4, currentZoom + 0.5);
+        zoomDisplay.textContent = `Zoom: ${currentZoom.toFixed(1)}x`;
+        drawReviewFrame();
+      });
+
+      zoomOutBtn.addEventListener("click", () => {
+        currentZoom = Math.max(1, currentZoom - 0.5);
+        if (currentZoom === 1) {
+          panX = 0;
+          panY = 0;
+        }
+        zoomDisplay.textContent = `Zoom: ${currentZoom.toFixed(1)}x`;
+        drawReviewFrame();
+      });
+
+      // Rozpocznij nagrywanie
+      startBtn.addEventListener("click", async () => {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: "environment",
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+            },
+            audio: true,
+          });
+
+          videoElement = document.createElement("video");
+          videoElement.srcObject = stream;
+          videoElement.muted = true;
+          videoElement.play();
+
+          videoElement.onloadedmetadata = () => {
+            isRecording = true;
+            drawVideoFrame();
+          };
+
+          mediaRecorder = new MediaRecorder(stream, {
+            mimeType: "video/webm;codecs=vp8,opus",
+          });
+
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+              recordedChunks.push(e.data);
+            }
+          };
+
+          mediaRecorder.onstop = () => {
+            // Stwórz blob z WSZYSTKICH chunków nagranych w meczu
+            const blob = new Blob(recordedChunks, { type: "video/webm" });
+            recordedVideo = URL.createObjectURL(blob);
+            startVarReview();
+          };
+
+          mediaRecorder.start();
+
+          startBtn.disabled = true;
+          stopBtn.disabled = false;
+          statusDot.classList.add("recording");
+          statusText.textContent = "NAGRYWANIE";
+
+          startFoulDetection();
+        } catch (err) {
+          alert("Błąd dostępu do kamery: " + err.message);
+        }
+      });
+
+      // Rysowanie klatek wideo podczas nagrywania
+      function drawVideoFrame() {
+        if (!videoElement || !isRecording) return;
+
+        const width = videoCanvas.width;
+        const height = videoCanvas.height;
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(videoElement, 0, 0, width, height);
+
+        animationId = requestAnimationFrame(drawVideoFrame);
+      }
+
+      // Zatrzymaj nagrywanie i przejdź do VAR
+      stopBtn.addEventListener("click", () => {
+        if (mediaRecorder && isRecording) {
+          mediaRecorder.stop();
+          isRecording = false;
+
+          if (animationId) {
+            cancelAnimationFrame(animationId);
+          }
+
+          if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+          }
+
+          if (foulCheckInterval) {
+            clearTimeout(foulCheckInterval);
+          }
+
+          stopBtn.disabled = true;
+          statusDot.classList.remove("recording");
+          statusDot.classList.add("checking");
+          statusText.textContent = "SPRAWDZANIE VAR";
+        }
+      });
+
+      // Rozpocznij sprawdzanie VAR
+      function startVarReview() {
+        const playbackVideo = document.createElement("video");
+        playbackVideo.src = recordedVideo;
+        playbackVideo.load();
+
+        playbackVideo.onloadedmetadata = () => {
+          videoElement = playbackVideo;
+          timelineSlider.max = playbackVideo.duration;
+          currentZoom = 1;
+          panX = 0;
+          panY = 0;
+
+          recordControls.style.display = "none";
+          varControls.style.display = "block";
+          decisionPanel.style.display = "block";
+
+          // Reset decision flow na początku
+          resetDecisionFlow();
+
+          updateTimeDisplay();
+          drawReviewFrame();
+        };
+
+        playbackVideo.ontimeupdate = () => {
+          if (isPlaying) {
+            updateTimeDisplay();
+          }
+        };
+      }
+
+      // Rysowanie klatki w trybie review
+      function drawReviewFrame() {
+        if (!videoElement) return;
+
+        const width = videoCanvas.width;
+        const height = videoCanvas.height;
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.save();
+
+        ctx.translate(width / 2, height / 2);
+        ctx.translate(panX, panY);
+        ctx.scale(currentZoom, currentZoom);
+        ctx.translate(-width / 2, -height / 2);
+
+        ctx.drawImage(videoElement, 0, 0, width, height);
+
+        ctx.restore();
+
+        if (isPlaying) {
+          requestAnimationFrame(drawReviewFrame);
+        }
+      }
+
+      // Slider czasu
+      timelineSlider.addEventListener("input", (e) => {
+        if (videoElement) {
+          videoElement.currentTime = parseFloat(e.target.value);
+          updateTimeDisplay();
+          if (!isPlaying) {
+            drawReviewFrame();
+          }
+        }
+      });
+
+      // Aktualizacja czasu
+      function updateTimeDisplay() {
+        if (videoElement) {
+          const current = formatTime(videoElement.currentTime);
+          const duration = formatTime(videoElement.duration);
+          timeDisplay.textContent = `${current} / ${duration}`;
+          timelineSlider.value = videoElement.currentTime;
+        }
+      }
+
+      function formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${String(mins).padStart(2, "0")}:${String(secs).padStart(
+          2,
+          "0"
+        )}`;
+      }
+
+      // Odtwórz
+      playBtn.addEventListener("click", () => {
+        if (videoElement && !isPlaying) {
+          videoElement.play();
+          isPlaying = true;
+          drawReviewFrame();
+        }
+      });
+
+      // Pauza
+      pauseBtn.addEventListener("click", () => {
+        if (videoElement && isPlaying) {
+          videoElement.pause();
+          isPlaying = false;
+        }
+      });
+
+      // Renderowanie markerów decyzji
+      function renderDecisionMarkers() {
+        if (!videoElement) return;
+
+        decisionMarkers.innerHTML = "";
+        const duration = videoElement.duration;
+
+        decisions.forEach((decision) => {
+          const marker = document.createElement("div");
+          marker.className = `decision-marker ${decision.type}`;
+          const position = (decision.time / duration) * 100;
+          marker.style.left = `${position}%`;
+          decisionMarkers.appendChild(marker);
+        });
+      }
+
+      // Funkcja do pokazania kroku
+      function showDecisionStep(step) {
+        decisionStep1.style.display = "none";
+        decisionStep2.style.display = "none";
+        decisionStep3.style.display = "none";
+        decisionStep4.style.display = "none";
+        decisionStep5.style.display = "none";
+        decisionSummary.style.display = "none";
+
+        if (step === 1) decisionStep1.style.display = "block";
+        else if (step === 2) decisionStep2.style.display = "block";
+        else if (step === 3) decisionStep3.style.display = "block";
+        else if (step === 4) decisionStep4.style.display = "block";
+        else if (step === 5) decisionStep5.style.display = "block";
+        else if (step === "summary") decisionSummary.style.display = "block";
+      }
+
+      // Reset flow
+      function resetDecisionFlow() {
+        selectedTeam = null;
+        selectedPlayerIndex = null;
+        showDecisionStep(1);
+      }
+
+      // Krok 1: Decyzja FAUL
+      foulBtn.addEventListener("click", () => {
+        if (videoElement) {
+          currentDecisionTime = videoElement.currentTime;
+
+          // Ustaw nazwy drużyn
+          foulTeam1Name.textContent = matchConfig.team1.name;
+          foulTeam2Name.textContent = matchConfig.team2.name;
+
+          showDecisionStep(2); // Potwierdzenie
+        }
+      });
+
+      // Krok 1: Decyzja NIE MA FAULU
+      noFoulBtn.addEventListener("click", () => {
+        if (videoElement) {
+          currentDecisionTime = videoElement.currentTime;
+
+          // Usuń poprzednią decyzję w tym miejscu
+          decisions = decisions.filter(
+            (d) => Math.abs(d.time - currentDecisionTime) > 0.5
+          );
+
+          decisions.push({
+            time: currentDecisionTime,
+            type: "no-foul",
+          });
+
+          renderDecisionMarkers();
+
+          videoCanvas.style.boxShadow = "0 0 30px #10b981";
+          setTimeout(() => {
+            videoCanvas.style.boxShadow = "";
+          }, 300);
+
+          summaryText.textContent = "✅ Nie było faulu - gra toczy się dalej";
+          showDecisionStep("summary");
+        }
+      });
+
+      // Krok 2: Potwierdzenie TAK
+      confirmYesBtn.addEventListener("click", () => {
+        showDecisionStep(3); // Wybór drużyny
+      });
+
+      // Krok 2: Potwierdzenie NIE
+      confirmNoBtn.addEventListener("click", () => {
+        resetDecisionFlow(); // Wróć do początku
+      });
+
+      // Krok 3: Wybór Drużyny 1
+      team1FoulBtn.addEventListener("click", () => {
+        selectedTeam = 1;
+        showPlayersList(1);
+        showDecisionStep(4);
+      });
+
+      // Krok 3: Wybór Drużyny 2
+      team2FoulBtn.addEventListener("click", () => {
+        selectedTeam = 2;
+        showPlayersList(2);
+        showDecisionStep(4);
+      });
+
+      // Funkcja do pokazania listy zawodników
+      function showPlayersList(team) {
+        playersListFoul.innerHTML = "";
+        const teamStats = team === 1 ? playerStats.team1 : playerStats.team2;
+
+        teamStats.forEach((player, index) => {
+          const btn = document.createElement("button");
+          btn.className = "player-select-btn";
+
+          if (player.redCard) {
+            btn.className += " unavailable";
+            btn.textContent = `${player.name} (POZA BOISKIEM)`;
+            btn.disabled = true;
+          } else {
+            btn.textContent = `${player.name} - ⚠️${player.warnings} 🟨${player.yellowCards}`;
+            btn.onclick = () => {
+              selectedPlayerIndex = index;
+              showDecisionStep(5); // Wybór kartki
+            };
+          }
+
+          playersListFoul.appendChild(btn);
+        });
+      }
+
+      // Krok 5: Ostrzeżenie
+      giveWarningBtn.addEventListener("click", () => {
+        applyCard("warning");
+      });
+
+      // Krok 5: Żółta kartka
+      giveYellowBtn.addEventListener("click", () => {
+        applyCard("yellow");
+      });
+
+      // Krok 5: Czerwona kartka
+      giveRedBtn.addEventListener("click", () => {
+        applyCard("red");
+      });
+
+      // Funkcja do udzielenia kartki
+      function applyCard(cardType) {
+        const teamName =
+          selectedTeam === 1 ? matchConfig.team1.name : matchConfig.team2.name;
+        const player =
+          selectedTeam === 1
+            ? playerStats.team1[selectedPlayerIndex]
+            : playerStats.team2[selectedPlayerIndex];
+
+        let cardText = "";
+
+        if (cardType === "warning") {
+          giveWarning(selectedTeam, selectedPlayerIndex);
+          cardText = "⚠️ OSTRZEŻENIE";
+        } else if (cardType === "yellow") {
+          giveYellowCard(selectedTeam, selectedPlayerIndex);
+          cardText = "🟨 ŻÓŁTA KARTKA";
+        } else if (cardType === "red") {
+          giveRedCard(selectedTeam, selectedPlayerIndex);
+          cardText = "🟥 CZERWONA KARTKA";
+        }
+
+        // Zapisz decyzję
+        decisions = decisions.filter(
+          (d) => Math.abs(d.time - currentDecisionTime) > 0.5
+        );
+        decisions.push({
+          time: currentDecisionTime,
+          type: "foul",
+          team: teamName,
+          player: player.name,
+          card: cardType,
+        });
+
+        renderDecisionMarkers();
+        vibrate();
+
+        videoCanvas.style.boxShadow = "0 0 30px #ef4444";
+        setTimeout(() => {
+          videoCanvas.style.boxShadow = "";
+        }, 300);
+
+        // Podsumowanie
+        summaryText.innerHTML = `
+                🔴 FAUL!<br>
+                <strong>${teamName}</strong><br>
+                <strong>${player.name}</strong><br>
+                ${cardText}
+            `;
+
+        showDecisionStep("summary");
+      }
+
+      // Koniec analizy VAR - powrót do nagrywania
+      endVarBtn.addEventListener("click", () => {
+        if (videoElement && isPlaying) {
+          videoElement.pause();
+          isPlaying = false;
+        }
+
+        varControls.style.display = "none";
+        decisionPanel.style.display = "none";
+        recordControls.style.display = "block";
+
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        statusDot.classList.remove("checking");
+        statusText.textContent = "GOTOWY";
+
+        // Reset decision flow
+        resetDecisionFlow();
+
+        // NIE czyścimy decisions - wszystkie decyzje są zachowane przez cały mecz!
+
+        ctx.clearRect(0, 0, videoCanvas.width, videoCanvas.height);
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, videoCanvas.width, videoCanvas.height);
+      });
+    </script>
+  </body>
+</html>
