@@ -391,6 +391,12 @@
         transform: translateX(-50%);
       }
 
+      .decision-marker.potential {
+        background: #eab308;
+        box-shadow: 0 0 10px #eab308;
+        opacity: 0.7;
+      }
+
       .decision-marker.foul {
         background: #ef4444;
         box-shadow: 0 0 10px #ef4444;
@@ -1204,7 +1210,9 @@
       let panY = 0;
       let foulCheckInterval = null;
       let isPlaying = false;
-      let decisions = [];
+      let decisions = []; // Decyzje dla bieżącego nagrania
+      let potentialFouls = []; // Żółte markery gdzie AI wykryło możliwy faul
+      let recordingStartTime = 0; // Czas rozpoczęcia nagrywania
 
       // Decision flow state
       let currentDecisionTime = 0;
@@ -1325,10 +1333,6 @@
 
         // Inicjalizuj statystyki
         initPlayerStats();
-
-        // Resetuj nagrania i decyzje na początku meczu
-        recordedChunks = [];
-        decisions = [];
 
         // Przejdź do ekranu nagrywania
         setupScreen.style.display = "none";
@@ -1620,6 +1624,12 @@
         playAlertSound();
         vibrate();
 
+        // Zapisz czas potencjalnego faulu jako żółty marker
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+          const elapsedTime = (Date.now() - recordingStartTime) / 1000; // czas w sekundach
+          potentialFouls.push(elapsedTime);
+        }
+
         setTimeout(() => {
           foulAlert.classList.remove("show");
         }, 2000);
@@ -1706,11 +1716,17 @@
       // Rozpocznij nagrywanie
       startBtn.addEventListener("click", async () => {
         try {
+          // Reset dla nowego nagrania - każde nagranie ma świeży timeline
+          decisions = [];
+          potentialFouls = [];
+          recordedChunks = [];
+
           stream = await navigator.mediaDevices.getUserMedia({
             video: {
               facingMode: "environment",
               width: { ideal: 1920 },
               height: { ideal: 1080 },
+              frameRate: { ideal: 60, min: 30 },
             },
             audio: true,
           });
@@ -1725,8 +1741,15 @@
             drawVideoFrame();
           };
 
+          // Poprawiony codec dla lepszej jakości i płynności
+          let mimeType = "video/webm;codecs=vp9,opus";
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = "video/webm;codecs=vp8,opus";
+          }
+
           mediaRecorder = new MediaRecorder(stream, {
-            mimeType: "video/webm;codecs=vp8,opus",
+            mimeType: mimeType,
+            videoBitsPerSecond: 8000000, // 8 Mbps dla lepszej jakości
           });
 
           mediaRecorder.ondataavailable = (e) => {
@@ -1736,13 +1759,13 @@
           };
 
           mediaRecorder.onstop = () => {
-            // Stwórz blob z WSZYSTKICH chunków nagranych w meczu
             const blob = new Blob(recordedChunks, { type: "video/webm" });
             recordedVideo = URL.createObjectURL(blob);
             startVarReview();
           };
 
           mediaRecorder.start();
+          recordingStartTime = Date.now(); // Zapamiętaj czas startu
 
           startBtn.disabled = true;
           stopBtn.disabled = false;
@@ -1763,6 +1786,11 @@
         const height = videoCanvas.height;
 
         ctx.clearRect(0, 0, width, height);
+
+        // Lepsze skalowanie dla ostrzejszego obrazu
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+
         ctx.drawImage(videoElement, 0, 0, width, height);
 
         animationId = requestAnimationFrame(drawVideoFrame);
@@ -1813,6 +1841,9 @@
           // Reset decision flow na początku
           resetDecisionFlow();
 
+          // Renderuj markery (żółte AI + czerwone/zielone decyzje)
+          renderDecisionMarkers();
+
           updateTimeDisplay();
           drawReviewFrame();
         };
@@ -1833,6 +1864,10 @@
 
         ctx.clearRect(0, 0, width, height);
         ctx.save();
+
+        // Lepsze skalowanie
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
 
         ctx.translate(width / 2, height / 2);
         ctx.translate(panX, panY);
@@ -1902,6 +1937,16 @@
         decisionMarkers.innerHTML = "";
         const duration = videoElement.duration;
 
+        // Żółte markery - potencjalne faule wykryte przez AI
+        potentialFouls.forEach((time) => {
+          const marker = document.createElement("div");
+          marker.className = "decision-marker potential";
+          const position = (time / duration) * 100;
+          marker.style.left = `${position}%`;
+          decisionMarkers.appendChild(marker);
+        });
+
+        // Czerwone/zielone markery - decyzje sędziego
         decisions.forEach((decision) => {
           const marker = document.createElement("div");
           marker.className = `decision-marker ${decision.type}`;
