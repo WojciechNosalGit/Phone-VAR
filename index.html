@@ -1226,10 +1226,21 @@
       let lastTouchY = 0;
       let isDragging = false;
 
-      // Ustawienie rozmiaru canvas
+      // Ustawienie rozmiaru canvas z uwzględnieniem device pixel ratio dla ostrzejszego obrazu
       function resizeCanvas() {
-        videoCanvas.width = videoCanvas.offsetWidth;
-        videoCanvas.height = (videoCanvas.offsetWidth * 9) / 16;
+        const dpr = window.devicePixelRatio || 1;
+        const rect = videoCanvas.getBoundingClientRect();
+
+        // Ustaw rzeczywistą rozdzielczość canvasa (z DPR)
+        videoCanvas.width = rect.width * dpr;
+        videoCanvas.height = ((rect.width * 9) / 16) * dpr;
+
+        // Ustaw wyświetlany rozmiar canvasa (CSS)
+        videoCanvas.style.width = rect.width + "px";
+        videoCanvas.style.height = (rect.width * 9) / 16 + "px";
+
+        // Skaluj kontekst
+        ctx.scale(dpr, dpr);
       }
       resizeCanvas();
       window.addEventListener("resize", resizeCanvas);
@@ -1606,10 +1617,13 @@
 
       function startFoulDetection() {
         function scheduleNextCheck() {
-          const delay = Math.random() * 10000 + 5000;
+          // Rzadsze sprawdzanie - 20-40 sekund
+          // W prawdziwym AI: analiza kontaktu między zawodnikami, nie ruchy kamery
+          const delay = Math.random() * 20000 + 20000;
           foulCheckInterval = setTimeout(() => {
             if (isRecording) {
-              if (Math.random() < 0.3) {
+              // Niska szansa - około 12%
+              if (Math.random() < 0.12) {
                 showFoulAlert();
               }
             }
@@ -1621,12 +1635,11 @@
 
       function showFoulAlert() {
         foulAlert.classList.add("show");
-        playAlertSound();
-        vibrate();
+        playAlertSound(); // Tylko dźwięk, bez wibracji
 
         // Zapisz czas potencjalnego faulu jako żółty marker
         if (mediaRecorder && mediaRecorder.state === "recording") {
-          const elapsedTime = (Date.now() - recordingStartTime) / 1000; // czas w sekundach
+          const elapsedTime = (Date.now() - recordingStartTime) / 1000;
           potentialFouls.push(elapsedTime);
         }
 
@@ -1727,6 +1740,7 @@
               width: { ideal: 1920 },
               height: { ideal: 1080 },
               frameRate: { ideal: 60, min: 30 },
+              aspectRatio: 16 / 9,
             },
             audio: true,
           });
@@ -1734,6 +1748,7 @@
           videoElement = document.createElement("video");
           videoElement.srcObject = stream;
           videoElement.muted = true;
+          videoElement.setAttribute("playsinline", true);
           videoElement.play();
 
           videoElement.onloadedmetadata = () => {
@@ -1741,7 +1756,7 @@
             drawVideoFrame();
           };
 
-          // Poprawiony codec dla lepszej jakości i płynności
+          // Najlepszy dostępny codec dla wysokiej jakości
           let mimeType = "video/webm;codecs=vp9,opus";
           if (!MediaRecorder.isTypeSupported(mimeType)) {
             mimeType = "video/webm;codecs=vp8,opus";
@@ -1749,7 +1764,7 @@
 
           mediaRecorder = new MediaRecorder(stream, {
             mimeType: mimeType,
-            videoBitsPerSecond: 8000000, // 8 Mbps dla lepszej jakości
+            videoBitsPerSecond: 10000000, // 10 Mbps dla jeszcze lepszej jakości
           });
 
           mediaRecorder.ondataavailable = (e) => {
@@ -1782,12 +1797,13 @@
       function drawVideoFrame() {
         if (!videoElement || !isRecording) return;
 
-        const width = videoCanvas.width;
-        const height = videoCanvas.height;
+        const rect = videoCanvas.getBoundingClientRect();
+        const width = rect.width;
+        const height = (rect.width * 9) / 16;
 
         ctx.clearRect(0, 0, width, height);
 
-        // Lepsze skalowanie dla ostrzejszego obrazu
+        // Najlepsza jakość skalowania
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
 
@@ -1859,13 +1875,14 @@
       function drawReviewFrame() {
         if (!videoElement) return;
 
-        const width = videoCanvas.width;
-        const height = videoCanvas.height;
+        const rect = videoCanvas.getBoundingClientRect();
+        const width = rect.width;
+        const height = (rect.width * 9) / 16;
 
         ctx.clearRect(0, 0, width, height);
         ctx.save();
 
-        // Lepsze skalowanie
+        // Najlepsza jakość skalowania
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
 
@@ -2158,9 +2175,11 @@
 
         // NIE czyścimy decisions - wszystkie decyzje są zachowane przez cały mecz!
 
-        ctx.clearRect(0, 0, videoCanvas.width, videoCanvas.height);
+        // Wyczyść canvas
+        const rect = videoCanvas.getBoundingClientRect();
+        ctx.clearRect(0, 0, rect.width, (rect.width * 9) / 16);
         ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, videoCanvas.width, videoCanvas.height);
+        ctx.fillRect(0, 0, rect.width, (rect.width * 9) / 16);
       });
     </script>
   </body>
