@@ -1635,7 +1635,7 @@
 
       function showFoulAlert() {
         foulAlert.classList.add("show");
-        playAlertSound(); // Tylko dźwięk, bez wibracji
+        vibrate(); // Tylko wibracje przy AI
 
         // Zapisz czas potencjalnego faulu jako żółty marker
         if (mediaRecorder && mediaRecorder.state === "recording") {
@@ -1734,13 +1734,15 @@
           potentialFouls = [];
           recordedChunks = [];
 
+          // Proś o najlepsze dostępne ustawienia - telefon sam wybierze
           stream = await navigator.mediaDevices.getUserMedia({
             video: {
               facingMode: "environment",
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-              frameRate: { ideal: 60, min: 30 },
-              aspectRatio: 16 / 9,
+              // Telefon wybiera najlepszą rozdzielczość którą obsługuje
+              width: { ideal: 3840 },
+              height: { ideal: 2160 },
+              // Telefon wybiera najlepszy framerate który obsługuje
+              frameRate: { ideal: 120 },
             },
             audio: true,
           });
@@ -1756,15 +1758,23 @@
             drawVideoFrame();
           };
 
-          // Najlepszy dostępny codec dla wysokiej jakości
+          // Automatycznie wybierz najlepszy dostępny codec
           let mimeType = "video/webm;codecs=vp9,opus";
           if (!MediaRecorder.isTypeSupported(mimeType)) {
             mimeType = "video/webm;codecs=vp8,opus";
           }
 
+          // Wysoką jakość ale bez sztywnego narzucania bitrate
+          const videoTrack = stream.getVideoTracks()[0];
+          const settings = videoTrack.getSettings();
+          const bitrate = Math.max(
+            settings.width * settings.height * settings.frameRate * 0.1,
+            5000000
+          );
+
           mediaRecorder = new MediaRecorder(stream, {
             mimeType: mimeType,
-            videoBitsPerSecond: 10000000, // 10 Mbps dla jeszcze lepszej jakości
+            videoBitsPerSecond: bitrate,
           });
 
           mediaRecorder.ondataavailable = (e) => {
@@ -2175,7 +2185,7 @@
 
         // NIE czyścimy decisions - wszystkie decyzje są zachowane przez cały mecz!
 
-        // Wyczyść canvas
+        // Wyczyść canvas - będzie czarny do następnego START
         const rect = videoCanvas.getBoundingClientRect();
         ctx.clearRect(0, 0, rect.width, (rect.width * 9) / 16);
         ctx.fillStyle = "#000";
